@@ -1,0 +1,15 @@
+Prospect-informed Location Analysis
+
+Context: As part of a larger corporate initiative, Sam's Club has shifted its audience towards more metropolitan, higher income, and aspirational members. This shift has strategic implications for both existing and potential clubs. In terms of new clubs, Sam's Club wants to identify white-space locations with large concentrations of this new target demographic that are likely to become club members.
+
+Goal: The purpose of the prospect-informed location analysis (PILA) project is to leverage an existing data processing pipeline (MEPAPI) and model (JOIN aka PROSPECT) to better inform the location decision process and thus increase ROI by choosing regions with high concentrations of target members that are also likely to become Sam's Clubs members. Our proposed model moves beyond binary filtering mechanisms to compute the likelihood any given prospect will actually become a member, thus avoiding the potential for a Simpson's paradox obfuscating the ideal club location.
+
+Approach: PILA will be based on an existing prospect model that was developed by the Modeling Research and Development Team to identify prospects that "look like" existing Sam's Club members. This model has been centralized and is actively being used by Sam's Club marketing campaigns. We will use the same "spy technique" to score prospects according to the ideal or "target" member. Given definitions of target segments, we will filter down the member database to these targets. Random sampling of this population and injecting the data into the unknown/unlabelled prospect data, allows us identify so-called "reliable negative" instances (i.e. prospects that are unlikely to ever become members). With both positive and negative labelled data, we push it into our automated MEPAPI pipeline, which will automatically train 7 different algorithms (e.g., XGBoost, Naive Bayes, SWM), tune their parameters, and evaluate  performance on unseen test data. In the next stage of the process, TCS data scientists will fine-tune the selected model through feature engineering. The output of the prospect module is a matrix of membership IDs coupled with that indvidual's posterior probabilty or likelihood of becoming a Sam's Club member. In the final stage, we query the prospect database to retreive addresses which are then mapped to geographic coordinates and aggregated to varying levels of granuality (lat/long, block group, zip+4, zip, county). Final output is a data frame of locations associated with a score representing the sum of the target members within that region as well as the normalized or mean score of that geographic unit based on marketing regions. This data then becomes input to the additional processes and filtering of the real estate team as they refine their analysis by incorporating competitor, growth, and population data.
+
+Points that need addressing:
+
+1.) What are the definitions of these target segments? - Email sent to Joon Lee (WMT, team MODRAD)
+2.) Implications of filtering/not-filtering prospect database?
+3.) Tool selection (does Walmart have an ARCGis licence?) open-source alts: GDAL, QGIS.
+
+
