@@ -375,3 +375,187 @@ mat.tab <- xtabs(pops ~vac.10)
 mat.tab
 ttext <- sprintf("Mosiac plot of vacant properties w ethnicity")
 mosaicplot(t(mat.tab), xlab='', ylab='Vacant properties > 10 percent', main=ttext, shade=TRUE, las=3, cex=0.8)
+
+
+## Chapter 5 - Using R as a GIS
+library(GISTools)
+data(tornados)
+
+
+par(mar=c(0,0,0,0))
+plot(us_states)
+plot(torn, add = T, pch=1, col="orange", cex=0.4, alpha = 0.1)
+plot(us_states, add = T)
+summary(torn)
+
+# do analysis on subset
+index <- us_states$STATE_NAME == "Texas" |
+  us_states$STATE_NAME == "New Mexico" |
+  us_states$STATE_NAME == "Oklahoma" |
+  us_states$STATE_NAME == "Arkansas"
+AoI <- us_states[index,]
+plot(AoI)
+plot(torn, add = T, pch = 1, col="orange")
+
+AoI.torn <- gIntersection(AoI, torn) #loses attributes
+par(mar=c(0,0,0,0))
+plot(AoI)
+plot(AoI.torn, add = T, pch = 1, col="orange")
+plot(AoI, add =T)
+
+
+AoI.torn <- gIntersection(AoI, torn, byid = TRUE) #doesn't lose attributes
+
+head(data.frame(AoI.torn))
+row.names(data.frame(us_states[index,]))
+us_states$STATE_NAME[index]
+
+tmp <- rownames(data.frame(AoI.torn))
+tmp <- strsplit(tmp, " ")
+torn.id <- (sapply(tmp, "[[", 2))
+state.id <- (sapply(tmp, "[[", 1))
+torn.id <- as.numeric(torn.id)
+df1 <- data.frame(torn[torn.id,])
+head(df1)
+
+df2 <- us_states$STATE_NAME[as.numeric(state.id)]
+df <- cbind(df1, df2)
+head(df)
+names(df)[1] <- "State"
+AoI.torn <- SpatialPointsDataFrame(AoI.torn, data = df)
+
+
+index2 <- match(df2, us_states$STATE_NAME)
+df3 <- data.frame(us_states)[index2,]  
+df3 <- cbind(df2, df1, df3)
+names(df3)[1] <- "State"
+AoI.torn <- SpatialPointsDataFrame(AoI.torn, data = df3)
+
+## 5.3 Buffers - display events *near* areas of interest
+## tornados that occur in Texas and within 25 km of border
+
+AoI <- us_states2[us_states2$STATE_NAME == "Texas",]
+AoI.buf <- gBuffer(AoI, width = 25000)
+par(mar=c(0,0,0,0))
+plot(AoI.buf)
+plot(AoI, add = T, border = "blue")
+
+data("georgia")
+buf.t <- gBuffer(georgia2, width = 5000, byid = T, id = georgia2$Name)
+plot(buf.t)
+plot(georgia2, add = T, border = "blue")
+
+plot(buf.t[1,])
+plot(georgia2[1,], add = T, border = "blue")
+
+## 5.4 Merging Spatial Features
+
+AoI.merge <- gUnaryUnion(us_states)
+par(mar=c(0,0,0,0))
+plot(us_states, border = "darkgreen", lty = 3)
+plot(AoI.merge, add = T, lwd = 0.5)
+
+## 5.5.1 Point-in-Polygon
+torn.count <- poly.counts(torn, us_states)
+head(torn.count)
+names(torn.count)
+
+## 5.5.2 Area Calculations
+
+proj4string(us_states2)
+poly.areas(us_states2) /(100*100) #hectacres
+poly.areas(us_states2) /(1000*1000) #square kilometers
+
+## 5.5.3 Point and Areas Analysis Exercise
+data(newhaven)
+densities <- poly.counts(breach, blocks) /
+  ft2miles(ft2miles(poly.areas(blocks)))
+cor(blocks$P_OWNEROCC, densities)
+plot(blocks$P_OWNEROCC, densities)
+
+breaches ~ Poisson(AREA * exp(a + b * blocks$P_OWNEROCC))
+
+data(newhaven)
+attach(data.frame(blocks))
+n.breaches <- poly.counts(breach, blocks)
+area <- ft2miles(ft2miles(poly.areas(blocks)))
+model1 <- glm(n.breaches ~ P_OWNEROCC, offset = log(area), family = poisson)
+detach(data.frame(blocks))
+
+summary(model1)
+s.resids <- rstandard(model1)
+resid.shades <- shading(c(-2,2),c("red", "grey", "blue"))
+par(mar=c(0,0,0,0))
+choropleth(blocks, s.resids, resid.shades)
+par(mar=c(5,4,4,2))
+
+# 
+
+attach(data.frame(blocks))
+n.breaches <- poly.counts(breach, blocks)
+area <- ft2miles(ft2miles(poly.areas(blocks)))
+model2 <- glm(n.breaches ~ P_OWNEROCC+P_VACANT, offset = log(area), family = poisson)
+s.resids.2 <- rstandard(model2)
+detach(data.frame(blocks))
+
+s.resids.2 <- rstandard(model2)
+par(mar=c(0,0,0,0))
+choropleth(blocks, s.resids.2, resid.shades)
+par(mar=c(5,4,4,2))
+
+## 5.6 Creating Distance Attributes
+
+data(newhaven)
+proj4string(places) <- CRS(proj4string(blocks))
+centroids. <- gCentroid(blocks, byid = T, id = rownames(blocks))
+distances <- ft2miles(gDistance(places, centroids., byid=T))
+head(distances)
+distances <- gWithinDistance(places, blocks, byid=T, dist=miles2ft(1.2))
+
+
+## 5.6.1 Distance Analysis/Accessibility Exercise
+
+distances <- ft2miles(gDistance(places, centroids., byid=T))
+min.dist <- as.vector(apply(distances, 1, min))
+access <- min.dist < 1
+ethnicity <- as.matrix(data.frame(blocks[,14:18])/100)
+ethnicity <- apply(ethnicity, 2, function(x)(x*blocks$POP1990))
+colnames(ethnicity) <- c("White", "Black", "Native American", "Asian", "Other")
+
+mat.access.tab <- xtabs(ethnicity~access)
+data.set <- as.data.frame(mat.access.tab)
+colnames(data.set) <- c("Access", "Ethnicity", "Freq")
+
+modelethnic <- glm(Freq~Access*Ethnicity, data = data.set, family = poisson)
+summary(modelethnic)$coef
+mod.coefs <- summary(modelethnic)$coef
+tab <- 100*(exp(mod.coefs[,1])-1)
+tab <- tab[7:10]
+names(tab) <- colnames(ethnicity)[2:5]
+tab
+
+mosaicplot(t(mat.access.tab),xlab='',ylab='Access to Supply', main="Mosaic plot of access", shade = TRUE, las =3, cex = 0.8)
+
+
+## 5.7 Combining spatial datasets and their attributes
+## dealing with different geounits
+
+data(newhaven)
+bb <- bbox(tracts)
+grd <- GridTopology(cellcentre.offset = c(bb[1,1]-200, bb[2,1]-200),
+                    cellsize = c(10000,10000), cells.dim = c(5,5))
+int.layer <- SpatialPolygonsDataFrame(as.SpatialPolygons.GridTopology(grd), 
+                                      data = data.frame(c(1:25)), match.ID = FALSE)
+names(int.layer) <- "ID"
+int.res <- gIntersection(int.layer, tracts, byid = TRUE)
+
+par(mfrow = c(1,2))
+par(mar=c(0,0,0,0))
+plot(int.layer, lty=2)
+Lat <- as.vector(coordinates(int.layer)[,2])
+Lon <- as.vector(coordinates(int.layer)[,1])
+Names <- as.character(data.frame(int.layer)[,1])
+plot(tracts, add = T, border = "red", lwd = 2)
+p1 <- pointLabel(Lon, Lat, Names, offset = 0, cex = 0.7)
+plot(int.layer, border = "white")
+plot(int.res, col=blues9, add = T)
