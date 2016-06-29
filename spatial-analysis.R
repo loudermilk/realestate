@@ -1,14 +1,17 @@
 ## R for Spatial Analysis and Mapping
 ## Exercises from book
 
-##
-## Ch. 2
-##
 library("GISTools")
 library("RColorBrewer")
 library("OpenStreetMap")
 library("RgoogleMaps")
 library("PBSmapping")
+library("raster")
+
+
+##
+## Ch. 2
+##
 
 
 data(georgia)
@@ -549,6 +552,7 @@ int.layer <- SpatialPolygonsDataFrame(as.SpatialPolygons.GridTopology(grd),
 names(int.layer) <- "ID"
 int.res <- gIntersection(int.layer, tracts, byid = TRUE)
 
+
 par(mfrow = c(1,2))
 par(mar=c(0,0,0,0))
 plot(int.layer, lty=2)
@@ -559,3 +563,183 @@ plot(tracts, add = T, border = "red", lwd = 2)
 p1 <- pointLabel(Lon, Lat, Names, offset = 0, cex = 0.7)
 plot(int.layer, border = "white")
 plot(int.res, col=blues9, add = T)
+
+names(int.res)
+
+
+tmp <- strsplit(names(int.res), " ")
+tracts.id <- (sapply(tmp, "[[", 2))
+intlayer.id <- (sapply(tmp, "[[", 1))
+
+## generate area and proportions
+int.areas <- gArea(int.res, byid = TRUE)
+tract.areas <- gArea(tracts, byid = TRUE)
+## match this to the new layer
+index <- match(tracts.id, row.names(tracts))
+tract.areas <- tract.areas[index]
+tract.prop <- zapsmall(int.areas/tract.areas, 3)
+## create df for new layer
+df <- data.frame(intlayer.id, tract.prop)
+houses <- zapsmall(tracts$HSE_UNITS[index] * tract.prop, 1)
+df <- data.frame(df, houses, int.areas)
+
+int.layer.houses <- xtabs(df$houses~df$intlayer.id)
+index <- as.numeric(gsub("g", "", names(int.layer.houses)))
+## create temporary variable
+tmp <- vector("numeric", length = dim(data.frame(int.layer))[1])
+tmp[index] <- int.layer.houses
+i.houses <- tmp
+## attach outputs to original zone dataset
+int.layer <- SpatialPolygonsDataFrame(int.layer, 
+                                      data = data.frame(data.frame(int.layer),
+                                                        i.houses),
+                                      match.ID = FALSE)
+## set plot parameters & shading variable
+par(mar=c(0,0,0,0))
+par(mfrow=c(1,1))
+shades <- auto.shading(int.layer$i.houses,
+                       n = 6,
+                       cols = brewer.pal(6, "Greens"))
+## map the data
+choropleth(int.layer, int.layer$i.houses, shades)
+plot(tracts, add = T)
+choro.legend(530000, 159115, bg = "white", shades, title = "No. of houses", under = "")
+## reset plot marins
+par(mar=c(5,4,4,2))
+
+
+## Converting between raster and vector
+## 5.8.1 Raster to Vector
+library(GISTools)
+library(raster)
+data(tornados)
+
+## converting points
+r <- raster(nrow = 180, ncols = 360, ext = extent(us_states2))
+t2 <- as(torn2, "SpatialPoints")
+r <- rasterize(t2, r, fun=sum) ## has cells describing tornado densities 
+## set the plot extent by specifying color "white"
+plot(r, col = "white")
+plot(us_states2, add = T, border = "grey")
+plot(r, add = T)
+
+## converting lines
+us_outline <- as(us_states2, "SpatialLinesDataFrame")
+r <- raster(nrow = 180, ncols = 360, ext = extent(us_states2))
+r <- rasterize(us_outline, r, "STATE_FIPS")
+plot(r)
+
+## converting polygons/areas
+r <- raster(nrow = 180, ncols = 360, ext = extent(us_states2))
+r <- rasterize(us_states2, r, "POP1997")
+plot(r)
+
+## 5.8.2 Coverting to sp Classes
+r <- raster(nrow = 60, ncols = 120, ext = extent(us_states2))
+r <- rasterize(us_states2, r, "STATE_FIPS")
+## use function `as` to coerce to SpatialPixelsDataFrame & SpatialGridDataFrame
+g <- as(r, 'SpatialGridDataFrame')
+p <- as(r, 'SpatialPixelsDataFrame')
+par(mar=c(0,0,0,0))
+image(g, col = topo.colors(51))
+points(p, cex = 0.5)
+
+plot(p, cex = 0.5, pch = 1, col = p$layer)
+
+head(data.frame(g))
+head(data.frame(p))
+
+r <- raster(nrow=60, ncols=120, ext = extent(us_states2))
+r <- rasterize(us_states2, r, "POP1997")
+r2 <- r
+## subset the data
+r2[r < 10000000] <- NA
+g <- as(r2, "SpatialGridDataFrame")
+p <- as(r2, "SpatialPixelsDataFrame")
+par(mar=c(0,0,0,0))
+plot(p, cex = 0.5, pch = 1)
+
+## 5.8.3 Vector to Raster
+
+## load data and convert to raster
+data(newhaven)
+r <- raster(nrow = 60, ncols = 60, ext = extent(tracts))
+## convert polys to raster
+r <- rasterize(tracts, r, "VACANT")
+poly1 <- rasterToPolygons(r, dissolve = T)
+## convert to points
+points1 <- rasterToPoints(r)
+## plot points, rasterized polys, & original polys
+par(mar=c(0,0,0,0))
+plot(points1, col = "grey", axes = F, xaxt='n', ann = F)
+plot(poly1, lwd = 1.5, add = T)
+plot(tracts, border = "red", add = T)
+
+## 5.9 Introoduction to Raster Analysis
+## 5.9.1 Raster Data Preparation
+
+library(GISTools)
+library(raster)
+library(sp)
+## load data
+data(meuse.grid)
+## create SpatialPixelsDataFrame
+coordinates(meuse.grid) <- ~x+y
+meuse.grid <- as(meuse.grid, "SpatialPixelsDataFrame")
+## create threee raster layers
+r1 <- raster(meuse.grid, layer = 3) ##dist
+r2 <- raster(meuse.grid, layer = 4) ##soil
+r3 <- raster(meuse.grid, layer = 5) ##ffreq
+## visually inspect attributes
+image(r1, asp=1)
+image(r2, asp=1)
+image(r3, asp=1)
+
+## 5.9.2 Raster Reclassification
+
+Raster_Result <- r2 + (r3 *10)
+table(Raster_Result$values)
+spplot(Raster_Result, col.regions=brewer.pal(9,"Spectral"), cuts=8)
+# image(Raster_Result, asp = 1)
+
+## Identify locations in meuse data that:
+## (a) greater than half the re-scaled distance to Meuse River
+## (b) have soil class of 1
+## (c) have flood frequency class of 3
+
+r1a <- r1 > 0.5
+r2a <- r2 >= 2
+r3a <- r3 < 3
+
+## for all conditions true and crisp boolean boundary (intersection)
+Raster_Result <- r1a * r2a * r3a
+table(as.vector(Raster_Result@data@values))
+plot(Raster_Result, legend = F, asp = 1)
+legend(x='bottomright', legend=c("Suitable","Crappy"), fill=(terrain.colors(n=2)),bty="n")
+
+
+## for one condition true (union)
+Raster_Result <- r1a + r2a + r3a
+table(as.vector(Raster_Result@data@values))
+image(Raster_Result, col = heat.colors(3), asp = 1)
+legend(x='bottomright', 
+       legend = c("Cond-1", "Cond-2", "Cond-3"),
+       fill = (heat.colors(n=3)), bty="n")
+
+## 5.9.3 Other Raster Calculations
+
+## you can apply any mathematical function to rasters
+Raster_Result <- sin(r3) + sqrt(r1)
+image(Raster_Result)
+
+data(meuse)
+coordinates(meuse) <- ~x+y
+## select a point layer
+soil.1 <- meuse[meuse$soil == 1,]
+## create empty raster layer
+r <- raster(meuse.grid)
+dist <- distanceFromPoints(r, soil.1)
+plot(dist)
+plot(soil.1, add = T)
+
+
