@@ -742,4 +742,95 @@ dist <- distanceFromPoints(r, soil.1)
 plot(dist)
 plot(soil.1, add = T)
 
+## Chapter 6 - POINT PATTERN ANAYSIS USING R
 
+## Point patterns are collections on geo points assumed to have been generated 
+## by a random process. KDEs (Kernel Density Estimates) operate by averaging
+## a series of small 'bumps' (probability distributions in two dimensions)
+## centered on each observed point. Steps to produce a KDE map: (1) compute
+## the KDE, (2) plot the KDE, (3) clip the plot to the study area.
+
+require(GISTools)
+data(newhaven)
+breach.dens <- kde.points(breach, lims = tracts) ## compute density
+level.plot(breach.dens) ## create level plot
+masker <- poly.outer(breach.dens, tracts, extend = 100) ## use masking to clip
+add.masking(masker)
+plot(tracts, add = T)
+
+
+## R Kernel Density Comparison
+require(GISTools)
+data(newhaven)
+par(mfrow=c(1,2), mar=c(0,0,2,0))
+brf.dens <- kde.points(burgres.f, lims = tracts)
+level.plot(brf.dens)
+masker <- poly.outer(brf.dens, tracts, extend=100)
+add.masking(masker)
+plot(tracts, add = T)
+
+brn.dens <- kde.points(burgres.n, lims = tracts)
+level.plot(brn.dens)
+masker <- poly.outer(brn.dens, tracts, extend=100)
+add.masking(masker)
+plot(tracts, add = T)
+
+
+## 6.4.1 Hexagonal Binning Using R
+library("fMultivar")
+hbins <- hexBinning(coordinates(breach))
+head(hbins$x)
+head(hbins$y)
+head(hbins$z)
+u <- c(1,0,-1,-1,0,1)
+u <- u * min(diff(unique(sort(hbins$x))))
+v <- c(1,2,1,-1,-2,-1)
+v <- v * min(diff(unique(sort(hbins$y))))/3
+par(mfrow=c(1,1))
+plot(blocks)
+shades <- brewer.pal(9, "Greens")
+for (i in 1:length(hbins$x)) {
+  polygon(u + hbins$x[i], v + hbins$y[i], col = shades[hbins$z[i]], border = NA)
+}
+plot(blocks, add = T)
+
+## 6.5 SECOND-ORDER ANALYSIS OF POINT PATTERNS
+## 6.5.1 Using the K-function in R
+library("spatstat")
+data(bramblecanes)
+plot(bramblecanes)
+
+kf <- Kest(bramblecanes, correction='border')
+plot(kf)
+
+## simulation or envelope analysis
+kf.env <- envelope(bramblecanes, Kest, correction='border')
+plot(kf.env)
+
+## significance testing
+mad.test(bramblecanes, Kest)
+dclf.test(bramblecanes, Kest)
+
+
+## 6.5.2 The L-function
+## identify clustering in spatial processes
+lf.env <- envelope(bramblecanes, Lest, correction = 'border')
+plot(lf.env)
+mad.test(bramblecanes, Lest)
+
+
+## 6.5.3 The G-function
+gf.env <- envelope(bramblecanes, Gest, correction='border')
+plot(gf.env)
+
+## 6.6 LOOKING AT MARKED POINT PATTERNS
+## 6.6.1 Cross-L-function Analysis in R
+
+class(marks(bramblecanes))
+ck.bramble <- Lcross(bramblecanes, i = 0, j = 1, correction = 'border')
+plot(ck.bramble)
+ckenv.bramble <- envelope(bramblecanes, Lcross, i = 0, j = 1, correction = 'border')
+plot(ckenv.bramble)
+dclf.test(bramblecanes, Lcross, i = 0, j = 1, correction = 'border')
+
+## 6.7 INTERPOLATION OF POINT PATTERNS WITH CONTINUOUS ATTRIBUTES
