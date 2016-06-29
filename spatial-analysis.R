@@ -834,3 +834,86 @@ plot(ckenv.bramble)
 dclf.test(bramblecanes, Lcross, i = 0, j = 1, correction = 'border')
 
 ## 6.7 INTERPOLATION OF POINT PATTERNS WITH CONTINUOUS ATTRIBUTES
+## 6.7.1 Nearest Neighbor Interpolation
+
+library(deldir)
+library(sp)
+
+voronoipolygons <- function(layer) {
+  crds <- layer@coords
+  z <- deldir(crds[,1], crds[,2])
+  w <- tile.list(z)
+  polys <- vector(mode='list', length=length(w))
+  for (i in seq(along=polys)){
+    pcrds <- cbind(w[[i]]$x, w[[i]]$y)
+    pcrds <- rbind(pcrds, pcrds[1,])
+    polys[[i]] <- Polygons(list(Polygon(pcrds)), ID=as.character(i))
+  }
+  SP <- SpatialPolygons(polys)
+  voronoi <- SpatialPolygonsDataFrame(SP, 
+                                      data = data.frame(x = crds[,1],
+                                                        y=crds[,2],
+                                                        layer@data,
+                                                        row.names=sapply(slot(SP,'polygons'),
+                                                                         function(x) slot(x,'ID'))))  
+  return(voronoi)
+}
+
+library("gstat")
+library("maptools")
+data(fulmar)
+
+fulmar.spdf <- SpatialPointsDataFrame(cbind(fulmar$x,fulmar$y), fulmar)
+fulmar.spdf <- fulmar.spdf[fulmar.spdf$year == 1999,]
+fulmar.voro <- voronoipolygons(fulmar.spdf)
+par(mfrow=c(1,2), mar=c(.1,.1,.1,.1))
+plot(fulmar.spdf, pch=16)
+plot(fulmar.voro)
+par(mfrow=c(1,1))
+
+library(gstat)
+library(GISTools)
+sh <- shading(breaks = c(5,15,25,35),
+              cols = brewer.pal(5, "Purples"))
+par(mar=c(.1,.1,.1,.1))
+choropleth(fulmar.voro, fulmar.voro$fulmar, shading=sh, border=NA)
+plot(fulmar.voro, border="lightgrey", add=T, lwd=0.5)
+choro.legend(px='topright',sh=sh)
+
+
+## Inverse Distance Weighting
+## In IDW approach to interpolation, to estimate the value of z at location x
+## a weighted mean of nearby observations is taken (rather than single neighbor)
+## To accommodate the idea that obs of z at pts closer to x should be given
+## greater importance in interpolation, pts are weighted
+
+library(maptools)
+library(GISTools)
+library(gstat)
+s.grid <- spsample(fulmar.voro, type='regular', n= 6000)
+idw.est <- gstat::idw(fulmar~1, fulmar.spdf, newdata=s.grid, idp=1)
+## extract distinct x y coordinates
+## extract predicted values
+
+ux <- unique(coordinates(idw.est)[,1])
+uy <- unique(coordinates(idw.est)[,2])
+predmat <- matrix(idw.est$var1.pred, length(ux), length(uy))
+
+idw.est2 <- gstat::idw(fulmar~1, fulmar.spdf, newdata=s.grid, idp=2)
+predmat2 <- matrix(idw.est2$var1.pred, length(ux), length(uy))
+
+par(mar=c(.1,.1,.1,.1), mfrow=c(1,2))
+plot(fulmar.voro, border = NA, col = NA)
+.filled.contour(ux, uy, predmat, col=brewer.pal(5,'Purples'),levels=c(0,2,4,6,8,30))
+sh <- shading(breaks=c(2,4,6,8), cols=brewer.pal(5,'Purples'))
+choro.legend(px='topright', sh=sh, bg='white')
+
+plot(fulmar.voro, border = NA, col = NA)
+.filled.contour(ux, uy, predmat2, col=brewer.pal(5,'Purples'),levels=c(0,2,4,6,8,30))
+sh <- shading(breaks=c(2,4,6,8), cols=brewer.pal(5,'Purples'))
+choro.legend(px='topright', sh=sh, bg='white')
+
+## 6.8 THE KRIGING APPROACH
+par(mfrow=c(1,2), mar=c(0,0,2,0))
+persp(predmat, box=FALSE)
+persp(predmat2, box=FALSE)
