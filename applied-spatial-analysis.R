@@ -129,4 +129,64 @@ getClass("Polygons")
 getClass("SpatialPolygons")
 
 ## 2.6.1 SpatialPolygonsDataFrame
+library(maps)
+library(maptools)
+state.map <- map("state", plot = FALSE, fill = TRUE)
+IDs <- sapply(strsplit(state.map$names, ":"), function(x) x[1])
 
+state.sp <- map2SpatialPolygons(state.map, IDs = IDs, proj4string = CRS("+proj=longlat +ellps=WGS84"))
+
+sat <- read.table("ch2/state.sat.data_mod.txt", row.names = 5, header = TRUE)
+str(sat)
+id <- match(row.names(sat), row.names(state.sp))
+row.names(sat)[is.na(id)]
+sat1 <- sat[!is.na(id),]
+state.spdf <- SpatialPolygonsDataFrame(state.sp, sat1)
+str(slot(state.spdf, "data"))
+str(state.spdf, max.level=2)
+
+## error signaled if row names don't match
+rownames(sat1)[2] <- "foobar"
+SpatialPolygonsDataFrame(state.sp, sat1)
+rownames(sat1)[2] <- "arizona"
+SpatialPolygonsDataFrame(state.sp, sat1)
+
+DC <- "district of columbia"
+not_dc <- !(row.names(state.spdf)==DC)
+state.spdf1 <- state.spdf[not_dc,]
+dim(state.spdf1)
+summary(state.spdf1)
+
+## 2.6.2 Holes and Ring Direction
+## clockwise (ring is not hole); counter clockwise (ring is hole)
+library(rgeos)
+manitoulin_sp <- createSPComment(manitoulin_sp)
+length(slot(manitoulin_sp, "polygons"))
+
+## 2.8 Raster Objects and the raster Package
+library(raster)
+r <- raster("ch2/70042108.tif")
+class(r)
+inMemory(r)
+object.size(r)
+cellStats(r, max)
+cellStats(r, min)
+inMemory(r)
+
+## remove vals <= 0, since only care abt land elevation
+out <- raster(r)
+bs <- blockSize(out)
+out <- writeStart(out, filename = tempfile(), overwrite = TRUE)
+for (i in 1:bs$n) {
+  v <- getValues(r, row = bs$row[i], nrows = bs$nrows[i])
+  v[v <= 0] <- NA
+  writeValues(out, v, bs$row[i])
+}
+out <- writeStop(out)
+cellStats(out, min)
+cellStats(out,max)
+inMemory(out)
+plot(out, col = terrain.colors(100))
+
+r1 <- as(out, "SpatialGridDataFrame")
+summary(r1)
