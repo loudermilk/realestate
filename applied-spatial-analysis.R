@@ -101,7 +101,7 @@ getClass("SpatialLines")
 library("maps")
 japan <- map("world", "japan", plot = FALSE)
 p4s <- CRS("+proj=longlat +ellps=WGS84")  
-library(maptools)
+library("maptools")
 SLjapan <- map2SpatialLines(japan, proj4string = p4s)
 str(SLjapan, max.level = 2)  
 
@@ -160,9 +160,7 @@ summary(state.spdf1)
 ## 2.6.2 Holes and Ring Direction
 ## clockwise (ring is not hole); counter clockwise (ring is hole)
 library(rgeos)
-manitoulin_sp <- createSPComment(manitoulin_sp)
-length(slot(manitoulin_sp, "polygons"))
-
+library(rgdal)
 ## 2.8 Raster Objects and the raster Package
 library(raster)
 r <- raster("ch2/70042108.tif")
@@ -190,3 +188,149 @@ plot(out, col = terrain.colors(100))
 
 r1 <- as(out, "SpatialGridDataFrame")
 summary(r1)
+
+## Chaper 3 -- Visualizing Spatial Data
+## traditional - allows incremental addition to plots
+## grid - does not allow incremental addition
+
+## 3.1 The Traditional Plotting System
+## 3.1.1 Plotting Points, Lines, Polygons, and Grids
+
+library(sp)
+data(meuse)
+coordinates(meuse) <- c("x", "y") ## transforms df to SpatialPointsDataFrame
+head(meuse)
+plot(meuse)
+title("points")
+
+cc <- coordinates(meuse)
+cc
+m.s1 <- SpatialLines(list(Lines(list(Line(cc)),"line1")))
+plot(m.s1)
+title("lines")
+
+data(meuse.riv)
+meuse.lst <- list(Polygons(list(Polygon(meuse.riv)),"meuse.riv"))
+meuse.pol <- SpatialPolygons(meuse.lst)
+plot(meuse.pol, col="grey")
+title("polygons")
+
+data(meuse.grid)
+class(meuse.grid)
+coordinates(meuse.grid) <- c("x", "y")
+meuse.grid <- as(meuse.grid, "SpatialPixels")
+image(meuse.grid, col="grey")
+title("grid")
+
+image(meuse.grid, col = "lightgrey")
+plot(meuse.pol, col="grey", add = TRUE)
+# lines(meuse.pol, col="red") ## alt to above, adds automatically
+plot(meuse, add = TRUE)
+
+## 3.1.2 Axes & Layout Elements
+
+layout(matrix(c(1,2),1,2))
+plot(meuse.pol, axes = TRUE)
+plot(meuse.pol, axes = FALSE)
+axis(1, at = c(178000 + 0:2 * 2000), cex.axis=0.7)
+axis(2, at = c(326000 + 0:3 * 4000), cex.axis=0.7)
+box()
+
+oldpar <- par(no.readonly = TRUE)
+layout(matrix(c(1,2),1,2))
+plot(meuse, axes = TRUE, cex = 0.6)
+plot(meuse.pol, add = T)
+title("Sample locations")
+par(mar = c(0,0,0,0) + 0.1)
+plot(meuse, axes = FALSE, cex = 0.6)
+plot(meuse.pol, add = T)
+box()
+par(oldpar)
+
+# par(mfrow=c(1,1))
+# plot(meuse)
+# plot(meuse.pol, add = T)
+# plot(meuse)
+# SpatialPolygonsRescale(layout.scale.bar(), 
+#                        offset = locator(1), 
+#                        scale = 1000, 
+#                        fill = c("transparent", "black"), 
+#                        plot.grid = F)
+# text(locator(1),"0") ## need to click on plot
+# text(locator(1),"1 km")
+# SpatialPolygonsRescale(layout.north.arrow(), 
+#                        offset=locator(1), 
+#                        scale=400, 
+#                        plot.grid=FALSE)
+
+## 3.1.3 Degree in Axes Labels & Reference Grid
+library(maptools)
+library(maps)
+wrld <- map("world", 
+            interior = FALSE, 
+            xlim = c(-179, 179), 
+            ylim=c(-89, 89), 
+            plot = FALSE)
+wrld_p <- pruneMap(wrld, xlim = c(-179, 179))
+llCRS <- CRS("+proj=longlat + ellpsWGS84")
+wrld_sp <- map2SpatialLines(wrld_p, proj4string=llCRS)
+prj_new <- CRS("+proj=moll")
+library(rgdal)
+wrld_proj <- spTransform(wrld_sp, prj_new)
+wrld_grid <- gridlines(wrld_sp, easts = c(-179, seq(-150, 150, 50), 179.5), norths = seq(-75, 75, 15), ndiscr = 100)
+wrld_grid_proj <- spTransform(wrld_grid, prj_new)
+at_sp <- gridat(wrld_sp, easts = 0, norths = seq(-75, 75, 15), offset = 0.3)
+at_proj <- spTransform(at_sp, prj_new)
+
+
+par(mfrow=c(1,1))
+plot(wrld_proj, col="grey60")
+plot(wrld_grid_proj, add = T, lty = 3, col="grey70")
+text(coordinates(at_proj), pos = at_proj$pos, offset = at_proj$offset, labels = parse(text=as.character(at_proj$labels)), cex=0.6)
+title("Da World")
+
+## 3.1.4 Plot Size, Plotting Area, Map Scale, & Multiple Plots
+par("pin") ## total size of figure
+par(pin = c(4,4))
+##dev.off() ## turn off plotting
+##windows(width=10, height = 10) ## X11() <- unix; quartz() <- mac
+##pdf("file.pdf", width = 5, height = 7)
+
+pin <- par("pin")
+dxy <- apply(bbox(meuse), 1, diff)
+ratio <- dxy[1]/dxy[2]
+par(pin=c(ratio*pin[2],pin[2]), xaxs = "i", yaxs = "i")
+plot(meuse, pch = 3)
+box()
+
+## 3.1.5 Plotting Attributes and Map Legends
+grays <- gray.colors(4, 0.55, 0.95)
+image(zn.idw, col = grays, breaks = log(c(100,200,400,800,1800)))
+
+## 3.2.1 Straight Trellis Example
+head(meuse)
+
+library(lattice)
+data(meuse)
+levelplot(z ~ x + y / name, spmap.to.lev(meuse$zn[c("direct","log")]),asp="iso")
+
+library(maptools)
+data(meuse.grid)
+coordinates(meuse.grid) <- c("x","y")
+meuse.grid <- as(meuse.grid, "SpatialPixelsDataFrame")
+im <- as.image.SpatialGridDataFrame(meuse.grid["dist"])
+c1 <- ContourLines2SLDF(contourLines(im))
+spplot(c1)
+
+## 3.2.3 Adding Reference and Layout Elements to Plots
+## example of build an sp.layout object
+
+river <- list("sp.polygons", meuse.pol)
+north <- list("SpatialPolygonsRescale", 
+              layout.north.arrow(),
+              offset = )
+scale <- list("SpatialPolygonsRescale", 
+              layout.scale.bar(), 
+              offset = c(180200, 329800),
+              scale = 1000,
+              fill = c("transparent", "black"))
