@@ -341,5 +341,76 @@ meuse.layout <- list(river, north, scale, txt1, txt2, pts)
 spplot(zn["log"], sp.layout = meuse.layout)
 
 ## 3.2.4 Arranging Panel Layout
+## 3.3 Alternatives Routes: ggplot, latticeExtra
+
+library("ggplot2")
+methods(fortify)
+
+m <- as(meuse, "data.frame")
+class(m)
+ggplot(m) + aes(x,y) + geom_point() + coord_equal()
+
+
+
+library("latticeExtra")
+p <- spplot(meuse["zinc"])
+head(meuse)
+meuse["zinc"]
+
+
+## 3.4 Interactive Plots
+## 3.4.1 Interacting with Base Graphics
+
+plot(meuse$lead)
+meuse.id <- identify(coordinates(meuse))
+class(meuse)
+
+plot(meuse)
+region <- locator(type="o")
+n <- length(region$x)
+p <- Polygon(cbind(region$x, region$y)[c(1:n, 1),], hole = FALSE)
+ps <- Polygons(list(p), ID="region")
+sps <- SpatialPolygons(list(ps))
+plot(meuse[sps,], pch = 16, cex = 0.5, add = T)
+names(meuse)
+
+## identify county/polygon in which is clicked
+library(maptools)
+prj <- CRS("+proj=longlat +datum=NAD27")
+nc_shp <- system.file("shapes/sids.shp", package = "maptools")[1]
+nc <- readShapePoly(nc_shp, proj4string = prj)
+plot(nc)
+pt <- locator(type="p")
+
+
+## 3.4.2 Interacting with spplot and Lattice Plots
+
+## ERRORS
+
+## 3.5 Colour Palettes and Class Intervals
+## 3.5.1 Colour Palettes
+
+rw.colors <- colorRampPalette(c("red", "white"))
+image(meuse.grid["dist"], col = rw.colors(10))
+
+library(RColorBrewer)
+example(brewer.pal)
+library("classInt")
+pal <- brewer.pal(5, "Reds")
+q5 <- classIntervals(meuse$zinc, n = 5, style="quantile")
+q5
+diff(q5$brks)
+plot(q5, pal = pal)
+
+fj5 <- classIntervals(meuse$zinc, n = 5, style="fisher")
+fj5
+diff(fj5$brks)
+plot(fj5, pal = pal)
+
+q5Colours <- findColours(q5, pal)
+plot(meuse, col = q5Colours, pch = 19)
+
+## Chapter 4 - Spatial Data Import and Export
+
 
 
