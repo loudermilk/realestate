@@ -454,6 +454,7 @@ proj[proj$name == "laea",]
 ellps <- projInfo("ellps")
 ellps[grep("a=6370997", ellps$major),]
 
+## 4.1.4 Degrees, Minutes, Seconds
 ## geographical coordinates should be converted to decimal form
 
 (IJ.dms.E <- "4d31'00\"E")
@@ -466,12 +467,26 @@ getSlots("DMS")
 c(as(IJ_east, "numeric"), as(IJ_north, "numeric"))
 
 ## 4.2 Vector File Formats
+## 4.2.1 Using IGR Drivers in rgdal
+head(ogrDrivers(), n=10)
+vignette("OGR_shape_encoding", package = "rgdal")
 
+scot_dat <- read.table("ch4/scotland.dat", skip = 1)
+head(scot_dat)
+names(scot_dat) <- c("District", "Observed", "Expected", 
+                     "PcAFF", "Latitude", "Longitude")
+ogrInfo("ch4/.", "scot")
+scot_LL <- readOGR(dsn = "ch4/.", layer = "scot")
+proj4string(scot_LL)
+proj4string(scot_LL) <- CRS("+proj=longlat +ellps=WGS84")
+sapply(slot(scot_LL, "data"),class)
+scot_LL$ID
 
-
-
-
-
-
-
-
+scot_dat$District
+ID_D <- match(scot_LL$ID, scot_dat$District)
+scot_dat1 <- scot_dat[ID_D, ]
+row.names(scot_dat1) <- row.names(scot_LL)
+library(maptools)
+scot_LLa <- spCbind(scot_LL, scot_dat1)
+all.equal(scot_LLa$ID, scot_LLa$District)
+names(scot_LLa)
