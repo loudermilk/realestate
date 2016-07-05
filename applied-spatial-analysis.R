@@ -490,3 +490,75 @@ library(maptools)
 scot_LLa <- spCbind(scot_LL, scot_dat1)
 all.equal(scot_LLa$ID, scot_LLa$District)
 names(scot_LLa)
+
+
+library("spdep")
+O <- scot_LLa$Observed
+E <- scot_LLa$Expected
+scot_LLa$SMR <- probmap(O,E)$relRisk/100
+library("DCluster")
+scot_LLa$smth <- empbaysmooth(O,E)$smthrr
+scot_BNG <- spTransform(scot_LLa, CRS("+init=epsg:27700"))
+
+drv <- "ESRI Shapefile"
+writeOGR(scot_BNG, dsn = "ch4/.", layer = "scot_BNG", driver = drv)
+dsn <- "WFS:http://geohub.jrc.ec.eurpoa.eu/effis/ows"
+ogrListLayers(dsn)
+
+library("spgrass6")
+sohoSG <- readRAST6(c("snowcost_broad", "snowcost_not_broad"))
+
+## Chapter 5 - Further Methods for Handling Spatial Data
+library(rgeos)
+getScale()
+library("testthat")
+set_do_poly_check(FALSE)
+test_package("rgeos")
+
+## 5.2.2 Using regeos
+olinda <- readOGR("ch5/.", "olinda1")
+proj4string(olinda) <- CRS("+init=epsg:4674")
+olinda_utm <- spTransform(olinda, CRS("+init=epsg:31985"))
+
+Area <- gArea(olinda_utm, byid = TRUE)
+olinda_utm$area <- sapply(slot(olinda_utm, "polygons"),slot,"area")
+all.equal(unname(Area), olinda_utm$area)
+olinda_utm$dens <- olinda_utm$V014/(olinda_utm$area/1e+06)
+bounds <- gUnaryUnion(olinda_utm)
+gArea(olinda_utm)
+sapply(slot(slot(bounds, "polygons")[[1]],"Polygons"), slot, "area")
+
+pols_overlap <- gOverlaps(olinda_utm, byid = TRUE)
+any(pols_overlap)
+
+oScale <- getScale()
+setScale(10000)
+pols_overlap <- gOverlaps(olinda_utm, byid = T)
+any(pols_overlap)
+
+bounds <- gUnaryUnion(olinda_utm)
+setScale(oScale)
+sapply(slot(slot(bounds, "polygons")[[1]], "Polygons"), slot, "area")
+
+pan <- readGDAL("ch5/L7_ETM8s.tif")
+proj4string(pan) <- CRS(proj4string(bounds))
+TM <- readGDAL("ch5/L7_ETMs.tif")
+proj4string(TM) <- CRS(proj4string(bounds))
+names(TM) <- c("TM1","TM2","TM3","TM4","TM5","TM7")
+dem <- readGDAL("ch5/olinda_dem_utm25s.tif")
+proj4string(dem) <- CRS(proj4string(bounds))
+is.na(dem$band1) <- dem$band1 <= 0
+
+library(spgrass6)
+myGRASS <- "/home/rsb/topics/grass/g642/grass-6.4.2"
+loc <- initGRASS(myGRASS, tempdir(), SG = dem, override = TRUE)
+execGRASS("g.mapset", mapset = "PERMANENT")
+
+
+## 5.3.1 Spatial Aggregation
+data(meuse)
+gt <- GridTopology(c(178480, 329640),c(400,400),c(8,11))
+coarseGrid <- SpatialGrid(gt, proj4string(meuse))
+
+## Chapter 6 - Spatio-Temporal Data
+
