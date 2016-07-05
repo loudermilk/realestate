@@ -328,9 +328,18 @@ spplot(c1)
 river <- list("sp.polygons", meuse.pol)
 north <- list("SpatialPolygonsRescale", 
               layout.north.arrow(),
-              offset = )
+              offset = c(178750, 332500))
 scale <- list("SpatialPolygonsRescale", 
               layout.scale.bar(), 
               offset = c(180200, 329800),
               scale = 1000,
               fill = c("transparent", "black"))
+txt1 <- list("sp.txt", c(180200, 329950),"0")
+txt2 <- list("sp.txt", c(181200, 329950),"1")
+pts <- list("sp.points", meuse, pch=3, col = "black")
+meuse.layout <- list(river, north, scale, txt1, txt2, pts)
+spplot(zn["log"], sp.layout = meuse.layout)
+
+## 3.2.4 Arranging Panel Layout
+
+
