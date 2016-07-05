@@ -411,6 +411,67 @@ q5Colours <- findColours(q5, pal)
 plot(meuse, col = q5Colours, pch = 19)
 
 ## Chapter 4 - Spatial Data Import and Export
+library(rgdal)
+
+NEWS <- "http://svn.osgeo.org/metacrs/proj/trunk/proj/NEWS"
+PROJ4_NEWS <- readLines(NEWS)
+lns <- grep("Release Notes|ESPG", PROJ4_NEWS)
+head(PROJ4_NEWS[lns])
+
+EPSG <- make_EPSG()
+EPSG[grep("^# ED50$", EPSG$note),]
+
+CRS("+init=epsg:4230")
+
+ED50 <- CRS("+init=epsg:4230 +towgs84=-87,-96,-120,0,0,0,0")
+ED50
+
+## 4.1.3 Projection and Transformation
+IJ.east <- as(char2dms("4d31'00\"E"), "numeric")
+IJ.north <- as(char2dms("52d28'00\"N"), "numeric")
+IJ.ED50 <- SpatialPoints(cbind(x=IJ.east, y = IJ.north), proj4string=ED50)
+res <- spTransform(IJ.ED50, CRS("+proj=longlat +datum=WGS84"))
+x <- as(dd2dms(coordinates(res)[1]), "character")
+y <- as(dd2dms(coordinates(res)[2],TRUE),"character")
+cat(x, y, "\n")
+spDistsN1(coordinates(IJ.ED50), coordinates(res), longlat = TRUE) * 1000
+
+
+
+library(maptools)
+gzAzimuth(coordinates(IJ.ED50), coordinates(res))
+
+proj4string(IJ.ED50) <- CRS("+init=epsg:4230")
+res <- spTransform(IJ.ED50, CRS("+proj=longlat +datum=WGS84"))
+spDistsN1(coordinates(IJ.ED50), coordinates(res), longlat = TRUE) * 1000
+gzAzimuth(coordinates(IJ.ED50), coordinates(res))
+
+EPSG[grep("Atlas", EPSG$note),1:2]
+
+CRS("+init=epsg:2163")
+proj <- projInfo("proj")
+proj[proj$name == "laea",]
+ellps <- projInfo("ellps")
+ellps[grep("a=6370997", ellps$major),]
+
+## geographical coordinates should be converted to decimal form
+
+(IJ.dms.E <- "4d31'00\"E")
+(IJ.dms.N <- "52d28'00\"N")
+
+## convert char strings to class DMS objs
+(IJ_east <- char2dms(IJ.dms.E))
+(IJ_north <- char2dms(IJ.dms.N))
+getSlots("DMS")
+c(as(IJ_east, "numeric"), as(IJ_north, "numeric"))
+
+## 4.2 Vector File Formats
+
+
+
+
+
+
 
 
 
