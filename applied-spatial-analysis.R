@@ -561,4 +561,54 @@ gt <- GridTopology(c(178480, 329640),c(400,400),c(8,11))
 coarseGrid <- SpatialGrid(gt, proj4string(meuse))
 
 ## Chapter 6 - Spatio-Temporal Data
+ecd.ll <- as.matrix(read.table("ch6/ECDovelatlon.dat", header = FALSE))
+library(sp)
+ecd.ll <- SpatialPoints(ecd.ll[,c(2,1)])
+proj4string(ecd.ll) <- CRS("+proj=longlat +datum=WGS84")
+library("xts")
+library("spacetime")
+ecd.years <- 1986:2003
+ecd.y <- as.Date(paste(ecd.years, "-01-01", sep = ""),"%Y-%m-%d")
+ecd <- read.table("ch6/ECDoveBBS1986_2003.dat", header = FALSE)
+ecd[ecd == -1] <- NA
+ecd.st <- STFDF(ecd.ll, ecd.y, data.frame(counts = as.vector(as.matrix(ecd))))
+dim(ecd.st)
+
+## 6.6 Selection, Addition, and Replacement of Attributes
+library(maps)
+m <- map("state", "florida", fill = TRUE, plot = FALSE)
+class(m)
+library(maptools)
+FL <- map2SpatialPolygons(m, "FL")
+class(FL)
+proj4string(FL) <- proj4string(ecd.st)
+dim(ecd.st[FL,])
+dim(ecd.st[,"1998::2003"])
+dim(ecd.st[,,"counts"])
+dim(ecd.st[FL,"1998::2003","counts"])
+
+mode(ecd.st[[1]])
+length(ecd.st[[1]])
+length(ecd.st[["counts"]])
+
+
+## 6.7 Overlay and Aggregation
+
+## total Eurasian Collared Dove counts in FL for 2-year periods
+bb <- STF(FL, ecd.y[c(4,6,8,10,12)])
+over(bb, ecd.st, fn = sum, na.rm = TRUE)
+bb.counts <- new("STFDF", bb, data = over(bb, ecd.st, fn = sum, na.rm = T))
+aggregate(ecd.st, bb, sum, na.rm=T)
+
+ecd.FL <- ecd.st[FL,,"counts"]
+x <- as(ecd.FL, "xts")
+x[is.na(x)] <- 0
+o <- order(as.vector(1:18 %*% x)/apply(x,2,sum))
+library(RColorBrewer)
+pal <- brewer.pal(6,"Reds")
+cuts <- c(0,2,4,6,8,10,12)
+ck <- list(at = cuts, labels = as.character(cuts^2))
+stplot(ecd.FL[o,],mode = "xt", col.regions = pal, cuts = 6, asp = 0.5, colorkey = ck)
+
+
 
