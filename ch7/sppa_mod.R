@@ -67,10 +67,10 @@ print(xyplot(y~x|DATASET, data=dpp, pch=19, aspect=1))
 ### code chunk number 15: sppa.Rnw:401-406
 ###################################################
 library(rgdal)
-spasthma <- readOGR(".", "spasthma")
-spbdry <- readOGR(".", "spbdry")
-spsrc <- readOGR(".", "spsrc")
-sproads <- readOGR(".", "sproads")
+spasthma <- readOGR("ch7/.", "spasthma")
+spbdry <- readOGR("ch7/.", "spbdry")
+spsrc <- readOGR("ch7/.", "spsrc")
+sproads <- readOGR("ch7/.", "sproads")
 
 
 ###################################################
@@ -166,7 +166,7 @@ legend(x=14, y=0.6, legend=c("Intensity", "Kernel"), lty=c(1,2))
 ###################################################
 ### code chunk number 30: sppa.Rnw:996-997
 ###################################################
-library(splancs)
+library("splancs")
 
 
 ###################################################
