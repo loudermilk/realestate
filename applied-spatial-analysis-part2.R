@@ -502,3 +502,86 @@ meuse.grid <- as(meuse.grid, "SpatialPixelsDataFrame")
 ## are preferred over more distant points; for large values IDW converges
 ## to the one-nearest-neighbor interpolation.
 
+library("gstat")
+idw.out <- gstat::idw(zinc~1, meuse, meuse.grid, idp = 2.5)
+as.data.frame(idw.out)[1:5,]
+
+## 8.3.2 Linear Regression
+zn.lm <- lm(log(zinc)~sqrt(dist), meuse)
+meuse.grid$pred <- predict(zn.lm, meuse.grid)
+meuse.grid$se.fit <- predict(zn.lm, meuse.grid, se.fit=TRUE)$se.fit
+meuse.lm <- krige(log(zinc)~sqrt(dist), meuse, meuse.grid)
+meuse.tr2 <- krige(log(zinc)~1, meuse, meuse.grid, degree = 2)
+lm(log(zinc)~I(x^2)+I(y^2)+I(x*y) + x + y, meuse)
+lm(log(zinc) ~ poly(x, y, degree = 2), meuse)
+
+## 8.4 Estimating Spatial Correlation: The Variogram
+## variogram plots semivariance as a function of distance
+
+## 8.4.1 Exploratory Variogram Analysis
+## simple way to acknowledge that spatial correlation is present or
+## not is to make scatterplots grouped according to separation distance
+
+hscat(log(zinc)~1,meuse,(0:9)*100, pch=3, cex=.6, col = 'grey')
+
+## spatial correlation can be assessed by plotting the variogram
+## and the variogram cloud
+
+library(gstat)
+cld <- variogram(log(zinc) ~ 1, meuse, cloud = TRUE)
+svgm <- variogram(log(zinc) ~ 1, meuse)
+d <- data.frame(gamma = c(cld$gamma, svgm$gamma),
+                dist = c(cld$dist, svgm$dist),
+                id = c(rep("cloud", nrow(cld)), rep("sample variogram", nrow(svgm)))
+)
+xyplot(gamma ~ dist | id, d,
+       scales = list(y = list(relation = "free", 
+                              #ylim = list(NULL, c(-.005,0.7)))),
+                              limits = list(NULL, c(-.005,0.7)))),
+       layout = c(1, 2), as.table = TRUE,
+       panel = function(x,y, ...) {
+         if (panel.number() == 2)
+           ltext(x+10, y, svgm$np, adj = c(0,0.5)) #$
+         panel.xyplot(x,y,...)
+       },
+       xlim = c(0, 1590),
+       cex = .5, pch = 3
+)
+
+sel <- plot(variogram(zinc~1, meuse, cloud = TRUE), digitize = TRUE)
+plot(sel, meuse)
+
+## 8.4.2 Cutoff, Lag Width, Direction Dependence
+plot(variogram(log(zinc)~1, meuse))
+plot(variogram(log(zinc) ~ 1, meuse, alpha = c(0, 45, 90, 135)))
+
+## cutoff distance - maximum distance up to which point pairs are
+## considered and the width of the distance interval over which
+## point pairs are averaged in bins.
+
+
+plot(variogram(log(zinc) ~ 1, meuse, cutoff = 1000, width = 50))
+variogram(log(zinc) ~ 1, meuse, boundaries = c(0,50,100,seq(250,1500,250)))
+
+## 8.4.3 Variogram Modelling
+## Variogram often used for spatial prediction (interpolation) or
+## simulation of the observed process based on point observations.
+## To ensure that predictions are associated with non-negative
+## prediction variances, the matrix with semivariance values between
+## all observation points and any possible prediction point needs to
+## be non-negative definite.
+
+## The traditional way of finding a suitable variogram model is to fit
+## a parametric model to the sample variogram.
+
+show.vgms()
+show.vgms(model = "Mat", kappa.range = c(.1, .2, .5, 1, 2, 5, 10), max = 10)
+
+## how to construct variogram model
+vgm(1, "Sph", 300)
+vgm(1, "Sph", 300, 0.5)
+v1 <- vgm(1, "Sph", 300, 0.5)
+v2 <- vgm(0.8, "Sph", 800, add.to = v1)
+v2
+vgm(0.5, "Nug", 0)
+
